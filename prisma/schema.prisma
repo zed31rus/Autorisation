@@ -1,0 +1,35 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id  Int @id @default(autoincrement())
+  login String @unique
+  nickname String
+  email String @unique
+  avatar String?
+  password String
+  isAdmin Boolean @default(false)
+  isCheckedByAdmin Boolean @default(false)
+  createdAt DateTime @default(now())
+  updateAt DateTime @updatedAt
+  tokens RefreshToken[]
+}
+
+model RefreshToken {
+  id Int @id @default(autoincrement())
+  hashedToken String @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId Int
+}
