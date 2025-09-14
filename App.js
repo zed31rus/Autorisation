@@ -18,7 +18,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
 const server = http.createServer(app);
-const PORT = 3513
+const PORT = 3003
 const registerSchema = Joi.object({
     login: Joi.string().min(3).max(30).required(),
     email: Joi.string().email().required(),
@@ -28,7 +28,6 @@ const registerSchema = Joi.object({
 
 const corsOptions =  {origin:[
     "https://zed31rus.ru",
-    "https://beta.zed31rus.ru",
     ], credentials: true};
 
 app.use(express.json());
