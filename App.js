@@ -11,8 +11,20 @@ import { createAccessToken, createRefreshToken, sendTokens } from "./tokenMaster
 import Joi from "joi";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
+import multer from "multer";
 
 dotenv.config()
+
+const soundStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'sounds/')
+    },
+    filename: (req, file, cb) => {
+        const uniqueName = file.originalname;
+        cb(null, uniqueName)
+    }
+})
+const uploadSound = multer({ soundStorage })
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
