@@ -17,7 +17,7 @@
 - **Prisma**  
 - **JavaScript**  
 - **sqLite**
-- **JWT Tokens**
+- **JWT**
 
 ## 🚀 Быстрый старт
 
