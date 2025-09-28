@@ -28,6 +28,7 @@ const registerSchema = Joi.object({
 
 const corsOptions =  {origin:[
     "https://zed31rus.ru",
+    "http://localhost:5173"
     ], credentials: true};
 
 app.use(express.json());
