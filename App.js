@@ -134,6 +134,8 @@ app.post("/refresh", async (req, res) => {
     }
 })
 
+//todo /changeAvatar, changeEmail
+
 app.get("/me", (req, res) => {
     const token = req.cookies.accessToken;
     if (!token) return res.status(401).json({ status: false, message: "No token" })
