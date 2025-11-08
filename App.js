@@ -187,6 +187,8 @@ app.patch("/me", async (req, res) => {
     });
 })
 
+//todo /changeAvatar, changeEmail
+
 app.get("/me", (req, res) => {
     const user = req.user;
     
