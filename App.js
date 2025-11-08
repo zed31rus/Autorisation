@@ -12,6 +12,7 @@ import Joi, { optional } from "joi";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { initSchedule } from "./schedule.js";
+import rateLimit from "express-rate-limit";
 
 dotenv.config()
 
@@ -112,7 +113,13 @@ app.post("/register", async (req, res) => {
     }
 });
 
-app.post("/login", async(req, res) => {
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: { status: false, message: "Too many login attempts, please try again after 15 minutes" }
+})
+
+app.post("/login",loginLimiter, async(req, res) => {
     const {login, password} = req.body;
 
     if (!login || !password) {
