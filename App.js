@@ -8,19 +8,24 @@ import dotenv from 'dotenv';
 import { addRefreshToken, prisma, registerUser, removeRefreshToken, patchUser } from "./db.js";
 import bcrypt from "bcrypt";
 import { createAccessToken, createRefreshToken, sendTokens, clearTokens } from "./tokenMaster.js";
-import Joi, { optional } from "joi";
+import Joi from "joi";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { initSchedule } from "./schedule.js";
 import rateLimit from "express-rate-limit";
+import { avatarUpload } from "./storage.js";
 
 dotenv.config()
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+export const __filename = fileURLToPath(import.meta.url);
+export const __dirname = path.dirname(__filename);
+export const UPLOADS_DIR = path.join(__dirname, 'static', "assets")
+export const AVATAR_UPLOAD_DIR = path.join(UPLOADS_DIR, 'avatars')
+
 const app = express();
 const server = http.createServer(app);
 const PORT = 3003
+const HOST = process.env.HOST
 
 const registerSchema = Joi.object({
     login: Joi.string().min(3).max(30).required(),
@@ -82,6 +87,7 @@ app.use(express.json());
 app.use(cors(corsOptions));
 app.use(cookieParser());
 app.set('trust proxy', 1);
+app.use('/static', express.static(UPLOADS_DIR))
 
 app.post("/register", async (req, res) => {
     const {error} = registerSchema.validate(req.body);
@@ -162,39 +168,62 @@ app.post("/logout", async (req, res) => {
 app.use(verifyUser)
 
 app.patch("/me", async (req, res) => {
-    if (!req.user) {
-        return res.status(401).json({ status: false, message: "Authentication required"})
-    }
-    
-    const {error, value: patchData} = patchSchema.validate(req.body);
-    if (error) {
-        return res.status(400).json({status: false, message:error.details[0].message })
-    }
+    avatarUpload.single('avatar')(req, res, async (err) => {
 
-    const result = await patchUser(req.user, patchData);
+        if (err) {
 
-    if (result.status === false) {
-        if (result.type === "duplicate") {
-            return res.status(409).json(result);
+            console.error("Multer error:", err.message);
+            return res.status(400).json({ status: false, message: err.message });
         }
-        return res.status(500).json(result)
-    }
-    if (patchData.password) {
-       
-        const user = result.data;
+
+        let user = req.user;
+
+        if (!user) {
+            return res.status(401).json({ status: false, message: "Authentication required"});
+        }
+
+        if (Object.keys(req.body).length === 0 && !req.file) {
+            return res.status(400).json({ status: false, message: "Request body must contain at least one field to update (email, password, nickname) or an avatar file." });
+        }
+
+        let patchData = {};
+
+        if (Object.keys(req.body).length > 0) {
+            const {error, value} = patchSchema.validate(req.body);
+            if (error) {
+                return res.status(400).json({status: false, message: error.details[0].message });
+            }
+            patchData = value;
+        }
+        if (req.file) {
+            const avatar = req.file.filename;
+            patchData.avatar = avatar;
+        }
+
+        const result = await patchUser(user, patchData);
+
+        if (result.status === false) {
+            if (result.type === "duplicate") {
+                return res.status(409).json(result);
+            }
+            return res.status(500).json(result);
+        }
+
+        user = await prisma.user.findUnique({
+            where: { id: user.id }
+        });
+
+        req.user = user;
+
         const newAccessToken = createAccessToken(user, process.env.JWT_SECRET);
+        sendTokens(res, "access", newAccessToken);
 
-        sendTokens(res, "access", newAccessToken)
-    }
-
-    return res.json({
-        status: true,
-        message: "User profile updated successfully",
-        user: result.data
+        return res.json({
+            status: true,
+            message: "User profile updated successfully"
+        });
     });
-})
-
-//todo /changeAvatar, changeEmail
+});
 
 app.get("/me", (req, res) => {
     const user = req.user;
@@ -202,7 +231,11 @@ app.get("/me", (req, res) => {
     if (!user) {
          return res.status(401).json({ status: false, message: "Authentication required" });
     }
-    
+    let avatarUrl = null
+    if (user.avatar) {
+        const avatarPath = `/static/avatars/${user.avatar}`;
+        avatarUrl = HOST + avatarPath;
+    }
     try {
         return res.json({
             status: true,
@@ -211,6 +244,7 @@ app.get("/me", (req, res) => {
                 login: user.login,
                 nickname: user.nickname,
                 email: user.email,
+                avatar: avatarUrl,
                 isAdmin: user.isAdmin,
                 isCheckedByAdmin: user.isCheckedByAdmin
             }
@@ -220,7 +254,7 @@ app.get("/me", (req, res) => {
         return res.status(500).json({status: false, message: "Server error retrieving user data" })
     }
 })
-
+//------------------------------------------------------------------------------------------------
 async function verifyUser(req, res, next) {
     const { accessToken, refreshToken } = req.cookies;
 

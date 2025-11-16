@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { netOptions } from "App.js"
+import { netOptions } from "./App.js"
 
 export function createAccessToken(user, JWT_SECRET) {
     return jwt.sign({id: user.id, login: user.login, nickname: user.nickname, isAdmin: user.isAdmin, isCheckedByAdmin: user.isCheckedByAdmin }, JWT_SECRET, {expiresIn: '15m'})
@@ -33,7 +33,7 @@ export function sendTokens(res, type, accessToken, refreshToken) {
 export function clearTokens(res, type) {
     const base = netOptions.base
     if (type == "access" || type == "BOTH") {
-        res.clearCookie(netOptions.cookies.accessToken.name, {...base, httpOnly: netOptions.cookies.refreshToken.httpOnly})
+        res.clearCookie(netOptions.cookies.accessToken.name, {...base, httpOnly: netOptions.cookies.accessToken.httpOnly})
     }
     if (type == "refresh" || type == "BOTH") {
         res.clearCookie(netOptions.cookies.refreshToken.name, {...base, httpOnly: netOptions.cookies.refreshToken.httpOnly})

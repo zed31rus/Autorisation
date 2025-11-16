@@ -2,7 +2,6 @@ import { PrismaClient } from "./generated/prisma/index.js";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import dotenv from "dotenv";
-import jwt from "jsonwebtoken";
 
 dotenv.config();
 
@@ -17,26 +16,16 @@ export async function registerUser(login, nickname, email, password) {
         if (emailExists) return { status: false, type: "emailExists", message: "Email already exists", data: {} };
 
         const hashedPassword = await bcrypt.hash(password, Number(process.env.BCRYPT_SALT_ROUNDS));
-        const user = await prisma.user.create({
+        await prisma.user.create({
             data: {
                 login,
                 nickname,
                 email,
                 password: hashedPassword
             },
-            select: {
-                id: true,
-                login: true,
-                nickname: true,
-                email: true,
-                isAdmin: true,
-                isCheckedByAdmin: true,
-            }
         });
 
-
-
-        return { status: true, type: "success", message: "User registered successfully", data: user };
+        return { status: true, type: "success", message: "User registered successfully", data: {}};
 
     } catch (e) {
         console.error("Register error:", e.message);
@@ -87,13 +76,16 @@ export async function patchUser(user, patchData) {
 
         if (patchData.password) {
             updateData.password = await bcrypt.hash(patchData.password, Number(process.env.BCRYPT_SALT_ROUNDS));
-            delete patchData.password;
         }
 
         if (patchData.nickname) {
             updateData.nickname = patchData.nickname;
         }
-        
+
+        if (patchData.email) {
+            updateData.email = patchData.email;
+        }
+
         if (patchData.avatar) {
             updateData.avatar = patchData.avatar;
         }
@@ -102,24 +94,16 @@ export async function patchUser(user, patchData) {
             return { status: true, type: "noChange", message: "No fields to update", data: user };
         }
 
-        const updatedUser = await prisma.user.update({
+        await prisma.user.update({
             where: {id: user.id},
-            data: updateData,
-            select: {
-                id: true,
-                login: true,
-                nickname: true,
-                email: true,
-                isAdmin: true,
-                isCheckedByAdmin: true,
-            }
+            data: updateData
         })
 
-        return { status: true, type: "success", message: "User updated successfully", data: updatedUser };
+        return { status: true, type: "success", message: "User updated successfully", data: {}};
     } catch(e) {
         console.error("Patch user error:", e.message)
-        if (e.code === 'P2002') {
-             return { status: false, type: "duplicate", message: "The provided data already exists for another user (e.g., email)", data: {} };
+        if (e.code === 'P2002') { 
+             return { status: false, type: "duplicate", message: `The field already exists`, data: {} };
         }
         return {status: false, type: "error", message: "Failed to patch user", data: {}}
     }
@@ -148,8 +132,8 @@ export async function cleanupExpiredRefreshTokens() {
                 }
             }
         });
-        console.log(`[CRON] Очистка Refresh Tokens завершена. Удалено записей: ${result.count}`);
+        console.log(`Очистка Refresh Tokens завершена. Удалено записей: ${result.count}`);
     } catch (e) {
-        console.error("[CRON] Ошибка при удалении просроченных токенов:", e.message);
+        console.error("Ошибка при удалении просроченных токенов:", e.message);
     }
 }
